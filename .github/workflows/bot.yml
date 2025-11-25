@@ -1,0 +1,43 @@
+name: Steam Discount Bot
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"  # Her 30 dakikada bir çalışır
+  workflow_dispatch:        # Manuel tetikleme için
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Depoyu Çek (Checkout)
+      uses: actions/checkout@v3
+
+    - name: Python Kurulumu
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Bağımlılıkları Yükle
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Botu Çalıştır
+      env:
+        API_KEY: ${{ secrets.API_KEY }}
+        API_SECRET: ${{ secrets.API_SECRET }}
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+      run: python main.py
+
+    - name: Değişiklikleri Kaydet (sent.json)
+      # Bot çalıştıktan sonra sent.json güncellenir, bunu repoya geri yüklemeliyiz
+      # Not: Bu adım, repo token izinleri gerektirir.
+      run: |
+        git config --global user.name "SteamBot"
+        git config --global user.email "bot@noreply.github.com"
+        git add sent.json
+        # Eğer değişiklik yoksa hata vermemesi için || echo "Değişiklik yok"
+        git commit -m "Update sent deals" || echo "Değişiklik yok"
+        git push

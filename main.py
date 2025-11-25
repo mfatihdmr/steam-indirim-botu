@@ -120,10 +120,13 @@ def main():
             f"🎮 {game['name']}\n"
             f"Eski Fiyat: {game['orig']}\n"
             f"Yeni Fiyat: {game['final']}\n\n"
-            f"🛒 Steam Linki:\n{game['url']}"
+            f"🛒 Link: {game['url']}"
         )
         
-        print(f"Tweet atılıyor: {game['name']}")
+        print("-" * 30)
+        print(f"Oluşturulan Tweet:\n{text}")
+        print("-" * 30)
+        
         tweet(text)
 
         # Kaydet ki tekrar paylaşmasın

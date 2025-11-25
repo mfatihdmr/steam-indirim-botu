@@ -83,15 +83,16 @@ def load_sent():
     if not os.path.exists("sent.json"):
         return []
     try:
-        with open("sent.json", "r") as f:
+        with open("sent.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        print("sent.json okunamadı (bozuk veya yanlış kodlama), boş liste ile devam ediliyor.")
         return []
 
 
 def save_sent(lst):
     """Gönderilen oyunların listesini kaydeder."""
-    with open("sent.json", "w") as f:
+    with open("sent.json", "w", encoding="utf-8") as f:
         json.dump(lst, f)
 
 

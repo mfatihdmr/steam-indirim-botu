@@ -95,52 +95,86 @@ def save_sent(lst):
         json.dump(lst, f)
 
 
+def get_steam_specials():
+    """Steam 'Özel Fırsatlar' sayfasından indirimli oyunları çeker."""
+    url = "https://store.steampowered.com/api/featuredcategories?cc=us&l=english"
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        specials = []
+        # 'specials' kategorisi altındaki oyunları al
+        if "specials" in data and "items" in data["specials"]:
+            for item in data["specials"]["items"]:
+                # Sadece oyunları al (type 0 = oyun, type 1 = paket)
+                # İndirim oranı %20'den büyük olanları alalım
+                if item.get("discount_percent", 0) >= 20:
+                    specials.append({
+                        "appid": item["id"],
+                        "name": item["name"],
+                        "discount": item["discount_percent"],
+                        "final": f"${item['final_price'] / 100:.2f}", # Fiyat kuruş cinsinden gelir
+                        "orig": f"${item['original_price'] / 100:.2f}",
+                        "url": f"https://store.steampowered.com/app/{item['id']}"
+                    })
+        return specials
+    except Exception as e:
+        print(f"Steam Specials çekilirken hata: {e}")
+        return []
+
 def main():
-    # Takip edilecek popüler oyunların listesi
-    # Bu liste zamanla genişletilebilir veya dinamik bir kaynaktan çekilebilir.
-    POPULAR_APP_IDS = [
-        570, 730, 1174180, 582010, 252490, 381210, 292030, 271590,
-        1091500, 1086940, 1245620, 105600, 230410
-    ]
-
-    print(f"[{datetime.now()}] İndirimler kontrol ediliyor... ({len(POPULAR_APP_IDS)} oyun)")
+    print(f"[{datetime.now()}] İndirimler kontrol ediliyor (Dinamik Mod)...")
     sent = load_sent()
-    discounted = get_discounted_games(POPULAR_APP_IDS)
+    
+    # Dinamik olarak indirimleri çek
+    candidates = get_steam_specials()
+    print(f"Bulunan potansiyel fırsat sayısı: {len(candidates)}")
 
-    print(f"Bulunan indirimli oyun sayısı: {len(discounted)}")
+    if not candidates:
+        print("Hiçbir fırsat bulunamadı.")
+        return
 
-    if not discounted:
-        print("Şu an indirimde olan oyun bulunamadı (listeden).")
+    # İndirim oranına göre sırala (En yüksekten en düşüğe)
+    candidates.sort(key=lambda x: x["discount"], reverse=True)
 
-    for game in discounted:
-        if game["appid"] in sent:
-            # Zaten gönderildiyse atla
-            continue
-        
-        text = (
-            f"🔥 %{game['discount']} İNDİRİM!\n\n"
-            f"🎮 {game['name']}\n"
-            f"Eski Fiyat: {game['orig']}\n"
-            f"Yeni Fiyat: {game['final']}\n\n"
-            f"🛒 Link: {game['url']}"
-        )
-        
-        print("-" * 30)
-        print(f"Oluşturulan Tweet:\n{text}")
-        print("-" * 30)
-        
-        try:
-            tweet(text)
-            # Başarılı olursa listeye ekle
+    # Henüz gönderilmemiş EN İYİ fırsatı bul
+    target_game = None
+    for game in candidates:
+        if game["appid"] not in sent:
+            target_game = game
+            break
+    
+    if not target_game:
+        print("Bulunan tüm fırsatlar zaten paylaşılmış.")
+        return
+
+    # Tweet oluştur ve gönder
+    game = target_game
+    text = (
+        f"🔥 %{game['discount']} İNDİRİM!\n\n"
+        f"🎮 {game['name']}\n"
+        f"Eski Fiyat: {game['orig']}\n"
+        f"Yeni Fiyat: {game['final']}\n\n"
+        f"🛒 Link: {game['url']}"
+    )
+    
+    print("-" * 30)
+    print(f"Seçilen Oyun: {game['name']} (%{game['discount']})")
+    print(f"Tweet İçeriği:\n{text}")
+    print("-" * 30)
+    
+    try:
+        tweet(text)
+        # Başarılı olursa listeye ekle
+        sent.append(game["appid"])
+        save_sent(sent)
+    except Exception as e:
+        print(f"Tweet atarken hata oluştu: {e}")
+        # Eğer hata "Duplicate" ise (403), yine de gönderildi sayalım
+        if "duplicate" in str(e).lower() or "403" in str(e):
+            print("Bu tweet zaten atılmış, listeye işleniyor.")
             sent.append(game["appid"])
             save_sent(sent)
-        except Exception as e:
-            print(f"Tweet atarken hata oluştu: {e}")
-            # Eğer hata "Duplicate" ise (403), yine de gönderildi sayalım ki döngüye girmesin
-            if "duplicate" in str(e).lower() or "403" in str(e):
-                print("Bu tweet zaten atılmış, listeye işleniyor.")
-                sent.append(game["appid"])
-                save_sent(sent)
 
     print(f"[{datetime.now()}] İşlem tamamlandı.")
 

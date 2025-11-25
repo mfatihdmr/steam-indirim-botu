@@ -100,7 +100,7 @@ def main():
     # Bu liste zamanla genişletilebilir veya dinamik bir kaynaktan çekilebilir.
     POPULAR_APP_IDS = [
         570, 730, 1174180, 582010, 252490, 381210, 292030, 271590,
-        1091500, 2077, 1086940, 1245620, 292030, 105600, 230410
+        1091500, 1086940, 1245620, 105600, 230410
     ]
 
     print(f"[{datetime.now()}] İndirimler kontrol ediliyor...")
@@ -127,11 +127,18 @@ def main():
         print(f"Oluşturulan Tweet:\n{text}")
         print("-" * 30)
         
-        tweet(text)
-
-        # Kaydet ki tekrar paylaşmasın
-        sent.append(game["appid"])
-        save_sent(sent)
+        try:
+            tweet(text)
+            # Başarılı olursa listeye ekle
+            sent.append(game["appid"])
+            save_sent(sent)
+        except Exception as e:
+            print(f"Tweet atarken hata oluştu: {e}")
+            # Eğer hata "Duplicate" ise (403), yine de gönderildi sayalım ki döngüye girmesin
+            if "duplicate" in str(e).lower() or "403" in str(e):
+                print("Bu tweet zaten atılmış, listeye işleniyor.")
+                sent.append(game["appid"])
+                save_sent(sent)
 
 if __name__ == "__main__":
     main()

@@ -45,10 +45,9 @@ def get_discounted_games(app_ids):
 
     for appid in app_ids:
         try:
-            # filters=price_overview yerine filters=basic,price_overview kullanarak ismi de alabiliriz
             # Ancak Steam API bazen tutarsız olabilir, en garantisi tüm veriyi çekip parse etmek.
             url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=us"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             data = response.json()
 
             if not data or str(appid) not in data or not data[str(appid)]["success"]:
@@ -104,9 +103,11 @@ def main():
         1091500, 1086940, 1245620, 105600, 230410
     ]
 
-    print(f"[{datetime.now()}] İndirimler kontrol ediliyor...")
+    print(f"[{datetime.now()}] İndirimler kontrol ediliyor... ({len(POPULAR_APP_IDS)} oyun)")
     sent = load_sent()
     discounted = get_discounted_games(POPULAR_APP_IDS)
+
+    print(f"Bulunan indirimli oyun sayısı: {len(discounted)}")
 
     if not discounted:
         print("Şu an indirimde olan oyun bulunamadı (listeden).")
@@ -140,6 +141,8 @@ def main():
                 print("Bu tweet zaten atılmış, listeye işleniyor.")
                 sent.append(game["appid"])
                 save_sent(sent)
+
+    print(f"[{datetime.now()}] İşlem tamamlandı.")
 
 if __name__ == "__main__":
     main()

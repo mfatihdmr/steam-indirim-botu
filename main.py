@@ -158,7 +158,8 @@ def main():
         f"🎮 {game['name']}\n"
         f"Eski Fiyat: {game['orig']}\n"
         f"Yeni Fiyat: {game['final']}\n\n"
-        f"🛒 Link: {game['url']}"
+        f"🛒 Link: {game['url']}\n\n"
+        f"#Steam #Indirim #Oyun #GameDeals #PCGaming"
     )
     
     print("-" * 30)

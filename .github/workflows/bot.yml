@@ -2,7 +2,7 @@ name: Steam Discount Bot
 
 on:
   schedule:
-    - cron: "0 * * * *"  # Her saat başı çalışır (X API limiti için)
+    - cron: "0 */2 * * *"  # Her 2 saatte bir çalışır (X API limiti için)
   workflow_dispatch:        # Manuel tetikleme için
 
 jobs:

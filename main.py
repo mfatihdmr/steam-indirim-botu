@@ -19,27 +19,17 @@ API_SECRET = os.getenv("API_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 
-def tweet(text):
-    """X API (Tweepy) kullanarak tweet atar."""
-    if not all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
-        print("UYARI: API anahtarları eksik. Tweet atılamıyor (Test modu).")
-        print(f"Tweet İçeriği:\n{text}")
-        return
+# X API v2 Client (Global Olarak Tanımla)
+client = None
+if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
+    client = tweepy.Client(
+        consumer_key=API_KEY,
+        consumer_secret=API_SECRET,
+        access_token=ACCESS_TOKEN,
+        access_token_secret=ACCESS_TOKEN_SECRET
+    )
 
-    try:
-        # X API v2 Client (Free Tier için v2 kullanılır)
-        client = tweepy.Client(
-            consumer_key=API_KEY,
-            consumer_secret=API_SECRET,
-            access_token=ACCESS_TOKEN,
-            access_token_secret=ACCESS_TOKEN_SECRET
-        )
-        
-        response = client.create_tweet(text=text)
-        print(f"Tweet Başarıyla Gönderildi! ID: {response.data['id']}")
-        
-    except Exception as e:
-        print(f"Tweet Gönderme Hatası: {e}")
+
 
 
 def get_discounted_games(app_ids):
@@ -118,7 +108,8 @@ def get_steam_specials():
                         "discount": item["discount_percent"],
                         "final": f"${item['final_price'] / 100:.2f}", # Fiyat kuruş cinsinden gelir
                         "orig": f"${item['original_price'] / 100:.2f}",
-                        "url": f"https://store.steampowered.com/app/{item['id']}"
+                        "url": f"https://store.steampowered.com/app/{item['id']}",
+                        "header_image": item.get("header_image")
                     })
         return specials
     except Exception as e:
@@ -168,10 +159,43 @@ def main():
     print("-" * 30)
     
     try:
-        tweet(text)
+        # Resim indirme ve tweet atma işlemi
+        image_path = "temp_game_image.jpg"
+        media_id = None
+        
+        if game.get("header_image"):
+            try:
+                print(f"Resim indiriliyor: {game['header_image']}")
+                img_data = requests.get(game['header_image']).content
+                with open(image_path, 'wb') as handler:
+                    handler.write(img_data)
+                
+                # Twitter API v1.1 ile medya yükleme (v2 Free Tier bazen sadece v1.1 medya yüklemeye izin verir)
+                auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+                api = tweepy.API(auth)
+                media = api.media_upload(filename=image_path)
+                media_id = media.media_id
+                print(f"Resim yüklendi, ID: {media_id}")
+            except Exception as img_err:
+                print(f"Resim yükleme hatası (Resimsiz devam edilecek): {img_err}")
+                media_id = None
+
+        # Tweet at (Resimli veya resimsiz)
+        if media_id:
+            response = client.create_tweet(text=text, media_ids=[media_id])
+        else:
+            response = client.create_tweet(text=text)
+            
+        print(f"Tweet Başarıyla Gönderildi! ID: {response.data['id']}")
+        
         # Başarılı olursa listeye ekle
         sent.append(game["appid"])
         save_sent(sent)
+        
+        # Geçici resmi sil
+        if os.path.exists(image_path):
+            os.remove(image_path)
+            
     except Exception as e:
         print(f"Tweet atarken hata oluştu: {e}")
         # Eğer hata "Duplicate" ise (403), yine de gönderildi sayalım

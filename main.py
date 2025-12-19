@@ -39,7 +39,7 @@ def get_discounted_games(app_ids):
     for appid in app_ids:
         try:
             # Ancak Steam API bazen tutarsız olabilir, en garantisi tüm veriyi çekip parse etmek.
-            url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=us"
+            url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=tr"
             response = requests.get(url, timeout=10)
             data = response.json()
 
@@ -90,7 +90,7 @@ def save_sent(lst):
 
 def get_steam_specials():
     """Steam 'Özel Fırsatlar' sayfasından indirimli oyunları çeker."""
-    url = "https://store.steampowered.com/api/featuredcategories?cc=us&l=english"
+    url = "https://store.steampowered.com/api/featuredcategories?cc=tr&l=english"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()

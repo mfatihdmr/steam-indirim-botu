@@ -150,7 +150,8 @@ def main():
         f"Eski Fiyat: {game['orig']}\n"
         f"Yeni Fiyat: {game['final']}\n\n"
         f"🛒 Link: {game['url']}\n\n"
-        f"#Steam #Indirim #Oyun #GameDeals #PCGaming"
+        f"#Steam #Indirim #Oyun #GameDeals #PCGaming\n"
+        f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
     )
     
     print("-" * 30)

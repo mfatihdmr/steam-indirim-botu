@@ -135,6 +135,11 @@ def get_search_discounts():
             orig_match = re.search(r'discount_original_price">([^<]+)</div>', content)
             orig_price = orig_match.group(1) if orig_match else "?"
             
+            # Resim URL (HTML içinden yedeği alalım)
+            # <img src="https://.../capsule_sm_120.jpg?t=..." ...>
+            img_match = re.search(r'<img src="([^"]+)"', content)
+            fallback_image = img_match.group(1) if img_match else None
+            
             # Sadece geçerli indirimi olanları al
             if discount > 0:
                 candidates.append({
@@ -144,7 +149,8 @@ def get_search_discounts():
                     "final": final_price,
                     "orig": orig_price,
                     "url": f"https://store.steampowered.com/app/{appid}",
-                    "header_image": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg"
+                    "header_image": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg",
+                    "fallback_image": fallback_image
                 })
                 
         return candidates
@@ -208,22 +214,48 @@ def main():
         image_path = "temp_game_image.jpg"
         media_id = None
         
+        # 1. Deneme: Standart Header Resmi
+        download_success = False
         if game.get("header_image"):
             try:
-                print(f"Resim indiriliyor: {game['header_image']}")
-                img_data = requests.get(game['header_image']).content
-                with open(image_path, 'wb') as handler:
-                    handler.write(img_data)
-                
-                # Twitter API v1.1 ile medya yükleme (v2 Free Tier bazen sadece v1.1 medya yüklemeye izin verir)
+                print(f"Resim indiriliyor (Standart): {game['header_image']}")
+                img_response = requests.get(game['header_image'], timeout=10)
+                if img_response.status_code == 200:
+                    with open(image_path, 'wb') as handler:
+                        handler.write(img_response.content)
+                    download_success = True
+                else:
+                    print(f"Standart resim bulunamadı ({img_response.status_code}).")
+            except Exception as e:
+                 print(f"Standart resim hatası: {e}")
+
+        # 2. Deneme: Yedek Resim (HTML'den gelen)
+        if not download_success and game.get("fallback_image"):
+            try:
+                print(f"Yedek resim indiriliyor: {game['fallback_image']}")
+                img_response = requests.get(game['fallback_image'], timeout=10)
+                if img_response.status_code == 200:
+                    with open(image_path, 'wb') as handler:
+                        handler.write(img_response.content)
+                    download_success = True
+                else:
+                    print(f"Yedek resim de bulunamadı ({img_response.status_code}).")
+            except Exception as e:
+                print(f"Yedek resim hatası: {e}")
+
+        # Resmi yükle (Eğer indirme başarılıysa)
+        if download_success:
+            try:
                 auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
                 api = tweepy.API(auth)
                 media = api.media_upload(filename=image_path)
                 media_id = media.media_id
-                print(f"Resim yüklendi, ID: {media_id}")
+                print(f"Resim Twitter'a yüklendi, ID: {media_id}")
             except Exception as img_err:
-                print(f"Resim yükleme hatası (Resimsiz devam edilecek): {img_err}")
+                print(f"Resim yükleme hatası (Tweet resimsiz atılacak): {img_err}")
                 media_id = None
+        else:
+             print("Uygun resim bulunamadı, tweet resimsiz atılacak.")
 
         # Tweet at (Resimli veya resimsiz)
         if media_id:
@@ -239,13 +271,20 @@ def main():
         
         # Geçici resmi sil
         if os.path.exists(image_path):
-            os.remove(image_path)
+            try:
+                os.remove(image_path)
+            except:
+                pass
             
     except Exception as e:
         print(f"Tweet atarken hata oluştu: {e}")
+        # Hata detaylarını yazdır (Tweepy error response varsa)
+        if hasattr(e, 'response') and e.response is not None:
+             print(f"Hata Detayı: {e.response.text}")
+
         # Eğer hata "Duplicate" ise (403), yine de gönderildi sayalım
         if "duplicate" in str(e).lower() or "403" in str(e):
-            print("Bu tweet zaten atılmış, listeye işleniyor.")
+            print(">>> BİLGİ: Bu tweet daha önce paylaşılmış (Twitter reddetti). Listeye 'gönderildi' olarak işleniyor. Bot bir sonraki çalışmada farklı oyun bulacak.")
             sent.append(game["appid"])
             save_sent(sent)
 

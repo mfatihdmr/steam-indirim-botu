@@ -88,50 +88,94 @@ def save_sent(lst):
         json.dump(lst, f)
 
 
-def get_steam_specials():
-    """Steam 'Özel Fırsatlar' sayfasından indirimli oyunları çeker."""
-    url = "https://store.steampowered.com/api/featuredcategories?cc=tr&l=english"
+import re
+
+def get_search_discounts():
+    """
+    Steam Arama API'sini kullanarak 'Geniş Çaplı' indirim taraması yapar.
+    Endpoint: /search/results/?query&start=0&count=50&specials=1&infinite=1
+    Bu yöntem 30-50+ arası indirimli oyunu 'Alaka Düzeyi' (Popülerlik) sırasına göre verir.
+    """
+    # Infinite scroll endpoint'i JSON döner (içinde HTML vardır)
+    url = "https://store.steampowered.com/search/results/?query&start=0&count=50&specials=1&infinite=1&cc=tr&l=english"
+    
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
         
-        specials = []
-        # 'specials' kategorisi altındaki oyunları al
-        if "specials" in data and "items" in data["specials"]:
-            for item in data["specials"]["items"]:
-                # Sadece oyunları al (type 0 = oyun, type 1 = paket)
-                # İndirim oranı %20'den büyük olanları alalım
-                if item.get("discount_percent", 0) >= 20:
-                    specials.append({
-                        "appid": item["id"],
-                        "name": item["name"],
-                        "discount": item["discount_percent"],
-                        "final": f"${item['final_price'] / 100:.2f}", # Fiyat kuruş cinsinden gelir
-                        "orig": f"${item['original_price'] / 100:.2f}",
-                        "url": f"https://store.steampowered.com/app/{item['id']}",
-                        "header_image": item.get("header_image")
-                    })
-        return specials
+        if "results_html" not in data:
+            print("API yanıtında 'results_html' bulunamadı.")
+            return []
+            
+        html = data["results_html"].replace("\n", "").replace("\r", "")
+        
+        # Regex ile oyun kutularını bul
+        # Her bir oyun <a> etiketi içindedir ve data-ds-appid özniteliği taşır
+        matches = re.finditer(r'<a href="[^"]+"[^>]+data-ds-appid="(\d+)"[^>]+class="search_result_row[^>]*>(.*?)</a>', html, re.DOTALL)
+        
+        candidates = []
+        
+        for match in matches:
+            appid = match.group(1)
+            content = match.group(2)
+            
+            # İsim
+            name_match = re.search(r'<span class="title">(.*?)</span>', content)
+            name = name_match.group(1) if name_match else "Unknown"
+            
+            # İndirim Oranı
+            disc_match = re.search(r'discount_pct">-(\d+)%</div>', content)
+            discount = int(disc_match.group(1)) if disc_match else 0
+            
+            # Fiyatlar (Regex ile basitçe buluyoruz, para birimi sembolleri dahil olabilir)
+            # <div class="discount_final_price">$4.64</div>
+            final_match = re.search(r'discount_final_price">([^<]+)</div>', content)
+            final_price = final_match.group(1) if final_match else "?"
+            
+            orig_match = re.search(r'discount_original_price">([^<]+)</div>', content)
+            orig_price = orig_match.group(1) if orig_match else "?"
+            
+            # Sadece geçerli indirimi olanları al
+            if discount > 0:
+                candidates.append({
+                    "appid": int(appid),
+                    "name": name,
+                    "discount": discount,
+                    "final": final_price,
+                    "orig": orig_price,
+                    "url": f"https://store.steampowered.com/app/{appid}",
+                    "header_image": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg"
+                })
+                
+        return candidates
+
     except Exception as e:
-        print(f"Steam Specials çekilirken hata: {e}")
+        print(f"Arama API taraması sırasında hata: {e}")
         return []
 
 def main():
-    print(f"[{datetime.now()}] İndirimler kontrol ediliyor (Dinamik Mod)...")
+    # Windows konsolunda Unicode karakterleri yazdırmak için (Crash önleyici)
+    import sys
+    sys.stdout.reconfigure(encoding='utf-8')
+
+    print(f"[{datetime.now()}] İndirimler kontrol ediliyor (Geniş Çaplı - Popülerlik Odaklı)...")
     sent = load_sent()
     
-    # Dinamik olarak indirimleri çek
-    candidates = get_steam_specials()
-    print(f"Bulunan potansiyel fırsat sayısı: {len(candidates)}")
+    # Yeni 'Search API' yöntemini kullan
+    candidates = get_search_discounts()
+    
+    print(f"Bulunan toplam potansiyel fırsat sayısı: {len(candidates)}")
 
     if not candidates:
         print("Hiçbir fırsat bulunamadı.")
         return
 
-    # İndirim oranına göre sırala (En yüksekten en düşüğe)
-    candidates.sort(key=lambda x: x["discount"], reverse=True)
+    # ÖNEMLİ: İndirim oranına göre SIRALAMIYORUZ.
+    # Steam API zaten 'Alaka Düzeyi' (Popülerlik/Uygunluk) sırasına göre veriyor.
+    # Kullanıcı popüler oyunların önce paylaşılmasını istediği için bu sırayı koruyoruz.
+    # candidates.sort(key=lambda x: x["discount"], reverse=True)  <-- BU SATIR KALDIRILDI
 
-    # Henüz gönderilmemiş EN İYİ fırsatı bul
+    # Henüz gönderilmemiş oyunu bul (Listedeki ilk eşleşen, en popüler olandır)
     target_game = None
     for game in candidates:
         if game["appid"] not in sent:

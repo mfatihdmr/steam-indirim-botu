@@ -136,7 +136,9 @@ def get_search_discounts():
             orig_price = orig_match.group(1) if orig_match else "?"
             
             # Sadece geçerli indirimi olanları al
-            if discount > 0:
+            # RV There Yet? (3949040) gibi sorunlu oyunları manuel filtrele (veya genel kural ekle)
+            if discount > 0 and appid != "3949040":
+                header_url = f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg"
                 candidates.append({
                     "appid": int(appid),
                     "name": name,
@@ -144,7 +146,7 @@ def get_search_discounts():
                     "final": final_price,
                     "orig": orig_price,
                     "url": f"https://store.steampowered.com/app/{appid}",
-                    "header_image": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg"
+                    "header_image": header_url
                 })
                 
         return candidates

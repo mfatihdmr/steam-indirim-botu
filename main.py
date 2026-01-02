@@ -19,6 +19,9 @@ API_SECRET = os.getenv("API_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 
+# Global User-Agent
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 # X API v2 Client (Global Olarak Tanımla)
 client = None
 if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
@@ -28,67 +31,8 @@ if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
         access_token=ACCESS_TOKEN,
         access_token_secret=ACCESS_TOKEN_SECRET
     )
-
-
-
-
-def get_discounted_games(app_ids):
-    """Verilen App ID listesindeki oyunların indirim durumunu kontrol eder."""
-    discounted = []
-
-    for appid in app_ids:
-        try:
-            # Ancak Steam API bazen tutarsız olabilir, en garantisi tüm veriyi çekip parse etmek.
-            url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=tr"
-            response = requests.get(url, timeout=10)
-            data = response.json()
-
-            if not data or str(appid) not in data or not data[str(appid)]["success"]:
-                print(f"Oyun verisi alınamadı: {appid}")
-                continue
-            
-            app_data = data[str(appid)]["data"]
-            price_data = app_data.get("price_overview")
-            
-            # Ücretsiz oyunlar veya fiyatı olmayanlar için kontrol
-            if not price_data:
-                continue
-
-            discount = price_data["discount_percent"]
-            if discount > 0:
-                discounted.append({
-                    "appid": appid,
-                    "name": app_data.get("name", "Steam Oyunu"),
-                    "discount": discount,
-                    "final": price_data["final_formatted"],
-                    "orig": price_data["initial_formatted"],
-                    "url": f"https://store.steampowered.com/app/{appid}"
-                })
-        except Exception as e:
-            print(f"Hata ({appid}): {e}")
-
-    return discounted
-
-
-def load_sent():
-    """Daha önce gönderilen oyunların listesini yükler."""
-    if not os.path.exists("sent.json"):
-        return []
-    try:
-        with open("sent.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        print("sent.json okunamadı (bozuk veya yanlış kodlama), boş liste ile devam ediliyor.")
-        return []
-
-
-def save_sent(lst):
-    """Gönderilen oyunların listesini kaydeder."""
-    with open("sent.json", "w", encoding="utf-8") as f:
-        json.dump(lst, f)
-
-
-import re
+    # Cloudflare engeline takılmamak için User-Agent ekle
+    client.session.headers["User-Agent"] = USER_AGENT
 
 def get_search_discounts():
     """
@@ -100,7 +44,9 @@ def get_search_discounts():
     url = "https://store.steampowered.com/search/results/?query&start=0&count=50&specials=1&infinite=1&cc=tr&l=english"
     
     try:
-        response = requests.get(url, timeout=10)
+        # Steam isteğine de User-Agent ekle
+        headers = {"User-Agent": USER_AGENT}
+        response = requests.get(url, headers=headers, timeout=10)
         data = response.json()
         
         if "results_html" not in data:

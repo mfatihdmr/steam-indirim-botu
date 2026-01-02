@@ -34,6 +34,26 @@ if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
     # Cloudflare engeline takılmamak için User-Agent ekle
     client.session.headers["User-Agent"] = USER_AGENT
 
+def load_sent():
+    """Daha önce gönderilen oyunların listesini yükler."""
+    if not os.path.exists("sent.json"):
+        return []
+    try:
+        with open("sent.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        print("sent.json okunamadı (bozuk veya yanlış kodlama), boş liste ile devam ediliyor.")
+        return []
+
+
+def save_sent(lst):
+    """Gönderilen oyunların listesini kaydeder."""
+    with open("sent.json", "w", encoding="utf-8") as f:
+        json.dump(lst, f)
+
+
+import re
+
 def get_search_discounts():
     """
     Steam Arama API'sini kullanarak 'Geniş Çaplı' indirim taraması yapar.

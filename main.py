@@ -221,14 +221,31 @@ def main():
         # İnsan gibi davranmak için kısa bir bekleme ekle
         time.sleep(random.uniform(3, 7))
         
-        if media_id:
-            response = client.create_tweet(text=text, media_ids=[media_id])
-        else:
-            print("Resimsiz tweet atılıyor...")
-            response = client.create_tweet(text=text)
+        try:
+            # Deneme 1: Twitter API v2 (Standart Yöntem)
+            if media_id:
+                response = client.create_tweet(text=text, media_ids=[media_id])
+            else:
+                print("Resimsiz tweet atılıyor...")
+                response = client.create_tweet(text=text)
+            print(f"Tweet Başarıyla Gönderildi (v2)! ID: {response.data['id']}")
             
-        print(f"Tweet Başarıyla Gönderildi! ID: {response.data['id']}")
-        
+        except Exception as v2_error:
+            # Eğer v2 hata verirse ve bu bir 403 engeli ise, v1.1 dene
+            print(f"v2 API ile tweet atılamadı: {v2_error}")
+            print(">>> Alternatif Yöntem (v1.1) deneniyor...")
+            
+            # v1.1 API nesnesini hazırla (yoksa oluştur)
+            auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+            api_v1 = tweepy.API(auth)
+            
+            if media_id:
+                v1_response = api_v1.update_status(status=text, media_ids=[media_id])
+            else:
+                v1_response = api_v1.update_status(status=text)
+            
+            print(f"Tweet Başarıyla Gönderildi (v1.1 Fallback)! ID: {v1_response.id}")
+
         # Başarılı olursa listeye ekle
         sent.append(game["appid"])
         save_sent(sent)
@@ -241,15 +258,21 @@ def main():
                 pass
             
     except Exception as e:
-        print(f"Tweet atarken hata oluştu: {e}")
+        print(f"Tweet atarken KESİN hata oluştu: {e}")
         
         is_duplicate = False
         error_msg = str(e).lower()
         
         # Hata detaylarını kontrol et
         if hasattr(e, 'response') and e.response is not None:
-             print(f"Twitter API Hata Yanıtı: {e.response.text}")
-             if "duplicate" in e.response.text.lower():
+             # v1.1 hataları için response.text değil response.reason olabilir, kontrol edelim
+             try:
+                error_text = e.response.text
+             except:
+                error_text = str(e)
+                
+             print(f"Twitter API Hata Yanıtı: {error_text}")
+             if "duplicate" in error_text.lower():
                  is_duplicate = True
 
         if "duplicate" in error_msg:

@@ -19,8 +19,20 @@ API_SECRET = os.getenv("API_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 
-# Global User-Agent
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# Global Browser Headers (Cloudflare/WAF Bypass)
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": "https://twitter.com/",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1"
+}
 
 # X API v2 Client (Global Olarak Tanımla)
 client = None
@@ -31,8 +43,8 @@ if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
         access_token=ACCESS_TOKEN,
         access_token_secret=ACCESS_TOKEN_SECRET
     )
-    # Cloudflare engeline takılmamak için User-Agent ekle
-    client.session.headers["User-Agent"] = USER_AGENT
+    # Cloudflare engeline takılmamak için tarayıcı başlıklarını ekle
+    client.session.headers.update(BROWSER_HEADERS)
 
 def load_sent():
     """Daha önce gönderilen oyunların listesini yükler."""
@@ -64,9 +76,8 @@ def get_search_discounts():
     url = "https://store.steampowered.com/search/results/?query&start=0&count=50&specials=1&infinite=1&cc=tr&l=english"
     
     try:
-        # Steam isteğine de User-Agent ekle
-        headers = {"User-Agent": USER_AGENT}
-        response = requests.get(url, headers=headers, timeout=10)
+        # Steam isteğine de browser başlıklarını ekle
+        response = requests.get(url, headers=BROWSER_HEADERS, timeout=10)
         data = response.json()
         
         if "results_html" not in data:
@@ -204,6 +215,11 @@ def main():
                 media_id = None
 
         # Tweet at (Resimli veya resimsiz)
+        import time
+        import random
+        # İnsan gibi davranmak için kısa bir bekleme ekle
+        time.sleep(random.uniform(3, 7))
+        
         if media_id:
             response = client.create_tweet(text=text, media_ids=[media_id])
         else:

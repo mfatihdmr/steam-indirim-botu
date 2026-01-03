@@ -19,19 +19,25 @@ API_SECRET = os.getenv("API_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 
-# Global Browser Headers (Cloudflare/WAF Bypass)
-BROWSER_HEADERS = {
+# Steam için Tam Tarayıcı Başlıkları (Scraping/HTML için)
+STEAM_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
     "Accept-Encoding": "gzip, deflate, br",
-    "Referer": "https://twitter.com/",
+    "Referer": "https://store.steampowered.com/",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-Site": "none",
     "Sec-Fetch-User": "?1"
+}
+
+# Twitter için Temiz Başlıklar (API JSON için)
+# Sadece User-Agent'ı değiştiriyoruz, 'python-requests' yerine tarayıcı gibi gözüksün ama API yapısını bozmasın.
+TWITTER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
 # X API v2 Client (Global Olarak Tanımla)
@@ -43,8 +49,8 @@ if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
         access_token=ACCESS_TOKEN,
         access_token_secret=ACCESS_TOKEN_SECRET
     )
-    # Cloudflare engeline takılmamak için tarayıcı başlıklarını ekle
-    client.session.headers.update(BROWSER_HEADERS)
+    # Twitter oturumuna özel başlığı ekle (Diğerlerini karıştırma)
+    client.session.headers.update(TWITTER_HEADERS)
 
 def load_sent():
     """Daha önce gönderilen oyunların listesini yükler."""
@@ -77,7 +83,7 @@ def get_search_discounts():
     
     try:
         # Steam isteğine de browser başlıklarını ekle
-        response = requests.get(url, headers=BROWSER_HEADERS, timeout=10)
+        response = requests.get(url, headers=STEAM_HEADERS, timeout=10)
         data = response.json()
         
         if "results_html" not in data:

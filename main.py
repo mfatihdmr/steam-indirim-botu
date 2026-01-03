@@ -34,12 +34,6 @@ STEAM_HEADERS = {
     "Sec-Fetch-User": "?1"
 }
 
-# Twitter için Temiz Başlıklar (API JSON için)
-# Sadece User-Agent'ı değiştiriyoruz, 'python-requests' yerine tarayıcı gibi gözüksün ama API yapısını bozmasın.
-TWITTER_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-}
-
 # X API v2 Client (Global Olarak Tanımla)
 client = None
 if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
@@ -49,8 +43,9 @@ if all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
         access_token=ACCESS_TOKEN,
         access_token_secret=ACCESS_TOKEN_SECRET
     )
-    # Twitter oturumuna özel başlığı ekle (Diğerlerini karıştırma)
-    client.session.headers.update(TWITTER_HEADERS)
+    # Twitter için User-Agent spoofing KALDIRILDI.
+    # Varsayılan Tweepy User-Agent'ı (API kimliği) kullanması daha güvenli.
+    # Çünkü 'Chrome' diyip API isteği atınca Cloudflare "Sen botsun" diye yakalıyor.
 
 def load_sent():
     """Daha önce gönderilen oyunların listesini yükler."""

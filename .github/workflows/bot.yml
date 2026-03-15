@@ -1,8 +1,8 @@
 name: Steam Discount Bot
 
 on:
-  schedule:
-    - cron: "0 * * * *"  # Her saat başı çalışır
+  # schedule:
+  #   - cron: "0 * * * *"  # Her saat başı çalışır (Geçici olarak durduruldu)
   workflow_dispatch:        # Manuel tetikleme için
 
 jobs:
